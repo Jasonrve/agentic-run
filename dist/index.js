@@ -24069,54 +24069,99 @@ async function callBifrost(request, baseUrl, apiKey) {
 }
 
 // src/render.ts
+var severityMeta = {
+  critical: { icon: "\u{1F7E5}", label: "CRITICAL" },
+  high: { icon: "\u{1F534}", label: "HIGH" },
+  medium: { icon: "\u{1F7E0}", label: "MEDIUM" },
+  low: { icon: "\u{1F7E2}", label: "LOW" }
+};
+var verdictMeta = {
+  fail: { icon: "\u26D4", label: "FAIL" },
+  warn: { icon: "\u26A0\uFE0F", label: "WARN" },
+  pass: { icon: "\u2705", label: "PASS" }
+};
 function escapeCell(value) {
   return value.replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
+}
+function countSeverities(report) {
+  return report.findings.reduce(
+    (acc, finding) => ({
+      ...acc,
+      [finding.severity]: acc[finding.severity] + 1
+    }),
+    { critical: 0, high: 0, medium: 0, low: 0 }
+  );
+}
+function formatVerdict(verdict) {
+  const meta = verdictMeta[verdict];
+  return `${meta.icon} **${meta.label}**`;
+}
+function formatSeverity(severity) {
+  const meta = severityMeta[severity];
+  return `${meta.icon} **${meta.label}**`;
 }
 function renderMarkdown(report) {
   const findings = report.findings ?? [];
   const nextSteps = report.next_steps ?? [];
   const notes = report.notes ?? [];
+  const severityCounts = countSeverities(report);
+  const verdict = verdictMeta[report.verdict];
   const lines = [];
-  lines.push(`# ${report.title || "Agentic Run Report"}`);
+  lines.push(`# ${verdict.icon} ${report.title || "Agentic Run Report"}`);
+  lines.push("");
+  lines.push("## \u{1F4CC} At a glance");
   lines.push("");
   lines.push("| Field | Value |");
   lines.push("|---|---|");
-  lines.push(`| Verdict | ${report.verdict} |`);
-  lines.push(`| Findings | ${findings.length} |`);
+  lines.push(`| Verdict | ${formatVerdict(report.verdict)} |`);
+  lines.push(`| Total findings | **${findings.length}** |`);
+  lines.push(`| Critical | **${severityCounts.critical}** |`);
+  lines.push(`| High | **${severityCounts.high}** |`);
+  lines.push(`| Medium | **${severityCounts.medium}** |`);
+  lines.push(`| Low | **${severityCounts.low}** |`);
   lines.push("");
   if (report.summary) {
-    lines.push("## Summary");
+    lines.push("## \u{1F9ED} Executive summary");
     lines.push("");
-    lines.push(report.summary);
+    lines.push(`> ${report.summary}`);
     lines.push("");
   }
-  lines.push("## Findings");
+  lines.push("## \u{1F6A8} Findings");
   lines.push("");
   if (findings.length > 0) {
-    lines.push("| Severity | Title | Details | Recommendation |");
-    lines.push("|---|---|---|---|");
-    for (const finding of findings) {
+    lines.push("| # | Severity | Finding | Why it matters | Recommendation |");
+    lines.push("|---|---|---|---|---|");
+    findings.forEach((finding, index) => {
       lines.push(
-        `| ${escapeCell(finding.severity)} | ${escapeCell(finding.title)} | ${escapeCell(finding.details)} | ${escapeCell(finding.recommendation)} |`
+        `| ${index + 1} | ${formatSeverity(finding.severity)} | **${escapeCell(finding.title)}** | ${escapeCell(finding.details)} | ${escapeCell(finding.recommendation)} |`
       );
-    }
+    });
     lines.push("");
+    lines.push("### Detail cards");
+    lines.push("");
+    findings.forEach((finding, index) => {
+      lines.push(`#### ${formatSeverity(finding.severity)} Finding ${index + 1}: ${finding.title}`);
+      lines.push("");
+      lines.push(`> **Why it matters:** ${finding.details}`);
+      lines.push(`> **Recommended fix:** ${finding.recommendation}`);
+      lines.push("");
+    });
   } else {
-    lines.push("No findings reported.");
+    lines.push("\u2705 No findings reported.");
     lines.push("");
   }
-  lines.push("## Next steps");
+  lines.push("## \u2705 Next steps");
   lines.push("");
   if (nextSteps.length > 0) {
     for (const step of nextSteps) {
-      lines.push(`- ${step}`);
+      lines.push(`- [ ] ${step}`);
     }
   } else {
-    lines.push("- None");
+    lines.push("- [ ] None");
   }
   lines.push("");
   if (notes.length > 0) {
-    lines.push("## Notes");
+    lines.push("## \u{1F4DD} Notes");
     lines.push("");
     for (const note of notes) {
       lines.push(`- ${note}`);
