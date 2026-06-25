@@ -1,5 +1,5 @@
 name: agentic-run
-description: Call Bifrost with a prompt, render a well-formatted Markdown report, and optionally upsert it as a PR comment.
+description: Call an OpenAI-compatible LLM with a prompt, render a well-formatted Markdown report, and optionally upsert it as a PR comment.
 
 inputs:
   prompt:
@@ -9,13 +9,14 @@ inputs:
     description: Optional additional context to include with the prompt.
     required: false
     default: ""
-  bifrost_base_url:
-    description: OpenAI-compatible Bifrost base URL.
+  llm_base_url:
+    description: OpenAI-compatible LLM base URL.
     required: false
-    default: https://bifrost.workside.win/v1
-  bifrost_api_key:
-    description: Bifrost API key.
-    required: true
+    default: ""
+  llm_api_key:
+    description: OpenAI-compatible LLM API key.
+    required: false
+    default: ""
   github_token:
     description: GitHub token used to upsert PR comments.
     required: false

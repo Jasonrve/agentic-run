@@ -24048,7 +24048,7 @@ ${context2}`;
     { role: "user", content: userContent }
   ];
 }
-async function callBifrost(request, baseUrl, apiKey) {
+async function callLlm(request, baseUrl, apiKey) {
   const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: {
@@ -24058,12 +24058,12 @@ async function callBifrost(request, baseUrl, apiKey) {
     body: JSON.stringify(request)
   });
   if (!response.ok) {
-    throw new Error(`Bifrost request failed with ${response.status} ${response.statusText}`);
+    throw new Error(`LLM request failed with ${response.status} ${response.statusText}`);
   }
   const raw = await response.json();
   const content = raw.choices?.[0]?.message?.content;
   if (!content) {
-    throw new Error("Bifrost response did not include message content");
+    throw new Error("LLM response did not include message content");
   }
   return parseReport(content);
 }
@@ -24226,8 +24226,8 @@ function parseInputs() {
   return {
     prompt: core.getInput("prompt", { required: true }),
     context: core.getInput("context"),
-    bifrostBaseUrl: core.getInput("bifrost_base_url") || "https://bifrost.workside.win/v1",
-    bifrostApiKey: core.getInput("bifrost_api_key", { required: true }),
+    llmBaseUrl: core.getInput("llm_base_url", { required: true }),
+    llmApiKey: core.getInput("llm_api_key", { required: true }),
     model: core.getInput("model") || "openai/gpt-4o-mini",
     prNumber: (() => {
       const raw = core.getInput("pr_number");
@@ -24263,7 +24263,13 @@ async function buildDeps(inputs) {
         const report2 = parseMockReport(inputs.mockResponseFile);
         return { report: report2, rawContent: JSON.stringify(report2) };
       }
-      const report = await callBifrost(request, inputs.bifrostBaseUrl, inputs.bifrostApiKey);
+      if (!inputs.llmBaseUrl) {
+        throw new Error("llm_base_url is required");
+      }
+      if (!inputs.llmApiKey) {
+        throw new Error("llm_api_key is required");
+      }
+      const report = await callLlm(request, inputs.llmBaseUrl, inputs.llmApiKey);
       return { report, rawContent: JSON.stringify(report) };
     }
   };

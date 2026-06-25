@@ -1,7 +1,7 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import { buildContextNarrative, fetchRepoContext, loadFiles, parsePathList } from './context.ts';
-import { buildMessages, callBifrost, parseReport } from './llm.ts';
+import { buildMessages, callLlm, parseReport } from './llm.ts';
 import { renderMarkdown } from './render.ts';
 import { AgenticChatResult, ReviewDeps, ReviewInputs, ReviewReport } from './types.ts';
 
@@ -61,8 +61,8 @@ export function parseInputs(): ReviewInputs {
   return {
     prompt: core.getInput('prompt', { required: true }),
     context: core.getInput('context'),
-    bifrostBaseUrl: core.getInput('bifrost_base_url') || 'https://bifrost.workside.win/v1',
-    bifrostApiKey: core.getInput('bifrost_api_key', { required: true }),
+    llmBaseUrl: core.getInput('llm_base_url', { required: true }),
+    llmApiKey: core.getInput('llm_api_key', { required: true }),
     model: core.getInput('model') || 'openai/gpt-4o-mini',
     prNumber: (() => {
       const raw = core.getInput('pr_number');
@@ -100,7 +100,13 @@ async function buildDeps(inputs: ReviewInputs): Promise<ReviewDeps> {
         const report = parseMockReport(inputs.mockResponseFile);
         return { report, rawContent: JSON.stringify(report) };
       }
-      const report = await callBifrost(request, inputs.bifrostBaseUrl, inputs.bifrostApiKey);
+      if (!inputs.llmBaseUrl) {
+        throw new Error('llm_base_url is required');
+      }
+      if (!inputs.llmApiKey) {
+        throw new Error('llm_api_key is required');
+      }
+      const report = await callLlm(request, inputs.llmBaseUrl, inputs.llmApiKey);
       return { report, rawContent: JSON.stringify(report) };
     },
   };

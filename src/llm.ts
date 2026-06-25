@@ -61,7 +61,7 @@ export function buildMessages(prompt: string, context: string, followUp?: string
   ];
 }
 
-export async function callBifrost(request: ChatRequest, baseUrl: string, apiKey: string): Promise<ReviewReport> {
+export async function callLlm(request: ChatRequest, baseUrl: string, apiKey: string): Promise<ReviewReport> {
   const response = await fetch(`${baseUrl.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -72,7 +72,7 @@ export async function callBifrost(request: ChatRequest, baseUrl: string, apiKey:
   });
 
   if (!response.ok) {
-    throw new Error(`Bifrost request failed with ${response.status} ${response.statusText}`);
+    throw new Error(`LLM request failed with ${response.status} ${response.statusText}`);
   }
 
   const raw = (await response.json()) as {
@@ -80,7 +80,7 @@ export async function callBifrost(request: ChatRequest, baseUrl: string, apiKey:
   };
   const content = raw.choices?.[0]?.message?.content;
   if (!content) {
-    throw new Error('Bifrost response did not include message content');
+    throw new Error('LLM response did not include message content');
   }
 
   return parseReport(content);

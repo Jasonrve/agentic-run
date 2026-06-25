@@ -28,8 +28,8 @@ export interface ReviewReport {
 export interface ReviewInputs {
   prompt: string;
   context: string;
-  bifrostBaseUrl: string;
-  bifrostApiKey: string;
+  llmBaseUrl: string;
+  llmApiKey: string;
   model: string;
   prNumber: number | null;
   postComment: boolean;

@@ -2,7 +2,7 @@
   "name": "agentic-run",
   "version": "1.0.0",
   "private": true,
-  "description": "Reusable GitHub Action for Bifrost-backed LLM PR reports",
+  "description": "Reusable GitHub Action for OpenAI-compatible LLM PR reports",
   "license": "MIT",
   "main": "dist/index.js",
   "scripts": {
