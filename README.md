@@ -14,6 +14,11 @@
   - next steps
 - upserts one stable PR comment instead of creating duplicates
 - can fail the workflow when findings are present
+- supports multiple context strategies:
+  - `diff` — pass changed-file diff only
+  - `full` — include full changed-file contents
+  - `hybrid` — include diff plus file contents
+  - `agentic` — start with diff/context, then let the model request more files
 
 ## Inputs
 
@@ -30,6 +35,10 @@
 | `comment_marker` | no | `<!-- agentic-run -->` | Stable marker for comment upsert |
 | `dry_run` | no | `false` | Render output without posting a comment |
 | `mock_response_file` | no | `` | Validation helper for local/CI dry runs |
+| `context_mode` | no | `diff` | Context strategy (`diff`, `full`, `hybrid`, `agentic`) |
+| `extra_context_paths` | no | `` | Comma or newline separated file paths to always include |
+| `max_file_chars` | no | `12000` | Maximum characters to load per file |
+| `max_follow_up_rounds` | no | `1` | Max extra rounds in agentic mode |
 
 ## Example usage
 
@@ -54,13 +63,14 @@ jobs:
       - name: Run agentic review
         uses: Jasonrve/agentic-run@v1
         with:
+          github_token: ${{ github.token }}
           bifrost_api_key: ${{ secrets.BIFROST_API_KEY }}
+          context_mode: agentic
+          extra_context_paths: |
+            docs/governance-rules.md
           prompt: |
             Review the Terraform changes in this PR for governance and security issues.
             Return a concise report suitable for a PR comment.
-          context: |
-            Repo policy: missing owner/cost_center/data_classification/service tags are high severity.
-            If the report finds issues, explain them clearly and recommend fixes.
           fail_on_findings: true
 ```
 
@@ -68,8 +78,9 @@ jobs:
 
 The repo includes a dry-run-friendly validation path so the action can be checked without calling Bifrost.
 
-- `scripts/agentic-run.sh` supports `mock_response_file`
-- `.github/workflows/validate.yml` exercises the composite action with a fixture
+- `npm test` exercises the TypeScript rendering and agentic follow-up flow
+- `npm run build` bundles `dist/index.js`
+- `.github/workflows/validate.yml` exercises the published action with a fixture
 
 ## Bifrost contract
 

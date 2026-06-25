@@ -16,6 +16,10 @@ inputs:
   bifrost_api_key:
     description: Bifrost API key.
     required: true
+  github_token:
+    description: GitHub token used to upsert PR comments.
+    required: false
+    default: ${{ github.token }}
   model:
     description: Model name to use.
     required: false
@@ -44,92 +48,33 @@ inputs:
     description: Optional path to a file containing a raw OpenAI-style response payload for validation.
     required: false
     default: ""
+  context_mode:
+    description: Context strategy to use. diff, full, hybrid, or agentic.
+    required: false
+    default: diff
+  extra_context_paths:
+    description: Comma or newline separated list of file paths to always include.
+    required: false
+    default: ""
+  max_file_chars:
+    description: Maximum characters to load per file.
+    required: false
+    default: "12000"
+  max_follow_up_rounds:
+    description: Maximum number of additional file-request rounds in agentic mode.
+    required: false
+    default: "1"
 
 outputs:
   verdict:
     description: The parsed verdict from the model.
-    value: ${{ steps.render.outputs.verdict }}
   finding_count:
     description: Number of findings in the report.
-    value: ${{ steps.render.outputs.finding_count }}
   comment_body:
     description: Rendered Markdown comment body.
-    value: ${{ steps.render.outputs.comment_body }}
   comment_url:
     description: URL of the upserted PR comment, if any.
-    value: ${{ steps.comment.outputs.comment_url }}
 
 runs:
-  using: composite
-  steps:
-    - name: Generate report
-      id: render
-      shell: bash
-      env:
-        INPUT_PROMPT: ${{ inputs.prompt }}
-        INPUT_CONTEXT: ${{ inputs.context }}
-        INPUT_BIFROST_BASE_URL: ${{ inputs.bifrost_base_url }}
-        BIFROST: ${{ inputs.bifrost_api_key }}
-        INPUT_MODEL: ${{ inputs.model }}
-        INPUT_FAIL_ON_FINDINGS: ${{ inputs.fail_on_findings }}
-        INPUT_COMMENT_MARKER: ${{ inputs.comment_marker }}
-        INPUT_DRY_RUN: ${{ inputs.dry_run }}
-        INPUT_MOCK_RESPONSE_FILE: ${{ inputs.mock_response_file }}
-      run: bash ${{ github.action_path }}/scripts/agentic-run.sh
-
-    - name: Upsert PR comment
-      id: comment
-      if: ${{ inputs.post_comment == 'true' && inputs.dry_run != 'true' }}
-      uses: actions/github-script@v7
-      env:
-        INPUT_COMMENT_MARKER: ${{ inputs.comment_marker }}
-        INPUT_PR_NUMBER: ${{ inputs.pr_number }}
-        AGENTIC_RUN_COMMENT_BODY: ${{ steps.render.outputs.comment_body }}
-      with:
-        github-token: ${{ github.token }}
-        script: |
-          const marker = process.env.INPUT_COMMENT_MARKER || '<!-- agentic-run -->';
-          const body = `${marker}\n\n${process.env.AGENTIC_RUN_COMMENT_BODY || ''}`;
-          const prNumber = Number(process.env.INPUT_PR_NUMBER || context.issue?.number || 0);
-          if (!prNumber) {
-            core.info('No PR number available; skipping comment upsert.');
-            core.setOutput('comment_url', '');
-            return;
-          }
-
-          const comments = await github.paginate(github.rest.issues.listComments, {
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: prNumber,
-            per_page: 100,
-          });
-
-          const existing = comments.find((comment) => comment.body?.includes(marker));
-          if (existing) {
-            const updated = await github.rest.issues.updateComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: existing.id,
-              body,
-            });
-            core.setOutput('comment_url', updated.data.html_url);
-            core.info(`Updated comment ${updated.data.html_url}`);
-          } else {
-            const created = await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              body,
-            });
-            core.setOutput('comment_url', created.data.html_url);
-            core.info(`Created comment ${created.data.html_url}`);
-          }
-
-    - name: Fail on findings when requested
-      if: ${{ inputs.fail_on_findings == 'true' }}
-      shell: bash
-      run: |
-        if [[ "${{ steps.render.outputs.verdict }}" != "pass" || "${{ steps.render.outputs.finding_count }}" != "0" ]]; then
-          echo "agentic-run report indicates findings"
-          exit 1
-        fi
+  using: node24
+  main: dist/index.js

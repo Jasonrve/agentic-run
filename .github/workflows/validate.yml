@@ -15,8 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Bash syntax check
-        run: bash -n scripts/agentic-run.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
 
       - name: Render a dry-run report from a fixture
         uses: ./

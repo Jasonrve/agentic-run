@@ -1,0 +1,23 @@
+{
+  "name": "agentic-run",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reusable GitHub Action for Bifrost-backed LLM PR reports",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "test": "tsx --test test/**/*.test.ts",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.1.0",
+    "esbuild": "^0.25.8",
+    "tsx": "^4.20.3",
+    "typescript": "^5.9.2"
+  }
+}
