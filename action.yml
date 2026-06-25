@@ -75,7 +75,7 @@ runs:
         INPUT_COMMENT_MARKER: ${{ inputs.comment_marker }}
         INPUT_DRY_RUN: ${{ inputs.dry_run }}
         INPUT_MOCK_RESPONSE_FILE: ${{ inputs.mock_response_file }}
-      run: ${{ github.action_path }}/scripts/agentic-run.sh
+      run: bash ${{ github.action_path }}/scripts/agentic-run.sh
 
     - name: Upsert PR comment
       id: comment
