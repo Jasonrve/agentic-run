@@ -1,0 +1,9 @@
+{
+  "choices": [
+    {
+      "message": {
+        "content": "{\"title\":\"Terraform Governance Review\",\"summary\":\"The Terraform changes are structurally sound, but governance requirements are not fully satisfied.\",\"verdict\":\"warn\",\"findings\":[{\"severity\":\"high\",\"title\":\"Missing owner tag\",\"details\":\"The resource metadata does not include the required owner tag.\",\"recommendation\":\"Add an owner tag that maps to a responsible person or team.\"}],\"next_steps\":[\"Add the missing governance tags\",\"Re-run the PR checks after updating the configuration\"],\"notes\":[\"This is a dry-run fixture for local validation.\"]}"
+      }
+    }
+  ]
+}

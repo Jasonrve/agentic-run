@@ -1,0 +1,135 @@
+name: agentic-run
+description: Call Bifrost with a prompt, render a well-formatted Markdown report, and optionally upsert it as a PR comment.
+
+inputs:
+  prompt:
+    description: Primary instruction for the LLM.
+    required: true
+  context:
+    description: Optional additional context to include with the prompt.
+    required: false
+    default: ""
+  bifrost_base_url:
+    description: OpenAI-compatible Bifrost base URL.
+    required: false
+    default: https://bifrost.workside.win/v1
+  bifrost_api_key:
+    description: Bifrost API key.
+    required: true
+  model:
+    description: Model name to use.
+    required: false
+    default: openai/gpt-4o-mini
+  pr_number:
+    description: Pull request number to comment on. Defaults to the current PR context when available.
+    required: false
+    default: ""
+  post_comment:
+    description: Whether to upsert a PR comment.
+    required: false
+    default: "true"
+  fail_on_findings:
+    description: Fail the step when the generated report contains findings or a non-pass verdict.
+    required: false
+    default: "false"
+  comment_marker:
+    description: Stable HTML marker used to update one comment instead of spamming duplicates.
+    required: false
+    default: "<!-- agentic-run -->"
+  dry_run:
+    description: Skip posting a PR comment and only emit outputs.
+    required: false
+    default: "false"
+  mock_response_file:
+    description: Optional path to a file containing a raw OpenAI-style response payload for validation.
+    required: false
+    default: ""
+
+outputs:
+  verdict:
+    description: The parsed verdict from the model.
+    value: ${{ steps.render.outputs.verdict }}
+  finding_count:
+    description: Number of findings in the report.
+    value: ${{ steps.render.outputs.finding_count }}
+  comment_body:
+    description: Rendered Markdown comment body.
+    value: ${{ steps.render.outputs.comment_body }}
+  comment_url:
+    description: URL of the upserted PR comment, if any.
+    value: ${{ steps.comment.outputs.comment_url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Generate report
+      id: render
+      shell: bash
+      env:
+        INPUT_PROMPT: ${{ inputs.prompt }}
+        INPUT_CONTEXT: ${{ inputs.context }}
+        INPUT_BIFROST_BASE_URL: ${{ inputs.bifrost_base_url }}
+        BIFROST: ${{ inputs.bifrost_api_key }}
+        INPUT_MODEL: ${{ inputs.model }}
+        INPUT_FAIL_ON_FINDINGS: ${{ inputs.fail_on_findings }}
+        INPUT_COMMENT_MARKER: ${{ inputs.comment_marker }}
+        INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        INPUT_MOCK_RESPONSE_FILE: ${{ inputs.mock_response_file }}
+      run: ${{ github.action_path }}/scripts/agentic-run.sh
+
+    - name: Upsert PR comment
+      id: comment
+      if: ${{ inputs.post_comment == 'true' && inputs.dry_run != 'true' }}
+      uses: actions/github-script@v7
+      env:
+        INPUT_COMMENT_MARKER: ${{ inputs.comment_marker }}
+        INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+        AGENTIC_RUN_COMMENT_BODY: ${{ steps.render.outputs.comment_body }}
+      with:
+        github-token: ${{ github.token }}
+        script: |
+          const marker = process.env.INPUT_COMMENT_MARKER || '<!-- agentic-run -->';
+          const body = `${marker}\n\n${process.env.AGENTIC_RUN_COMMENT_BODY || ''}`;
+          const prNumber = Number(process.env.INPUT_PR_NUMBER || context.issue?.number || 0);
+          if (!prNumber) {
+            core.info('No PR number available; skipping comment upsert.');
+            core.setOutput('comment_url', '');
+            return;
+          }
+
+          const comments = await github.paginate(github.rest.issues.listComments, {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            per_page: 100,
+          });
+
+          const existing = comments.find((comment) => comment.body?.includes(marker));
+          if (existing) {
+            const updated = await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existing.id,
+              body,
+            });
+            core.setOutput('comment_url', updated.data.html_url);
+            core.info(`Updated comment ${updated.data.html_url}`);
+          } else {
+            const created = await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body,
+            });
+            core.setOutput('comment_url', created.data.html_url);
+            core.info(`Created comment ${created.data.html_url}`);
+          }
+
+    - name: Fail on findings when requested
+      if: ${{ inputs.fail_on_findings == 'true' }}
+      shell: bash
+      run: |
+        if [[ "${{ steps.render.outputs.verdict }}" != "pass" || "${{ steps.render.outputs.finding_count }}" != "0" ]]; then
+          echo "agentic-run report indicates findings"
+          exit 1
+        fi

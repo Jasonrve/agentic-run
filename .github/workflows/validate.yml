@@ -1,0 +1,31 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bash syntax check
+        run: bash -n scripts/agentic-run.sh
+
+      - name: Render a dry-run report from a fixture
+        uses: ./
+        with:
+          prompt: |
+            Validate the reporting pipeline and produce a short, well-formatted summary.
+          context: |
+            This is a dry-run validation. Do not mention that this is a test unless it appears in the supplied fixture.
+          bifrost_api_key: dummy
+          dry_run: true
+          post_comment: false
+          mock_response_file: test/fixtures/mock-bifrost-response.json
